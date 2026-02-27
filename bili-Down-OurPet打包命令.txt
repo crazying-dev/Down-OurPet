@@ -1,0 +1,19 @@
+对于GUI：
+python -m PyInstaller ^
+   -i "icon.ico" ^
+   --exclude PyQt5 ^
+   --exclude PyQt6 ^
+   --exclude PySide2 ^
+   --exclude PySide6 ^
+   --exclude PyQt5.QtCore ^
+   --exclude PyQt5.QtGui ^
+   --exclude PyQt5.QtWidgets ^
+   --exclude PyQt6.QtCore ^
+   --exclude PyQt6.QtGui ^
+   --exclude PyQt6.QtWidgets ^
+   "GUI.py"
+
+
+对于you-get-OurPet：
+python -m PyInstaller -c -i "C:\Users\Alan_\PycharmProjects\OurPet\OurPet_other\bilibili v2\icon.ico" --collect-all=you_get --hidden-import=you_get --hidden-import=requests --clean "C:\Users\Alan_\PycharmProjects\OurPet\OurPet_other\bilibili v2\you-get-ourpet.py"
+

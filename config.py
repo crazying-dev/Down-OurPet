@@ -1,122 +1,188 @@
+import shutil
 import time
 import json
 import configparser
 import os
 import pathlib
-import log
+import logging
 
-config_file = 'config.ini'
-version = '1.0.0'
-this_path = os.path.dirname(os.path.abspath(__file__))
-encoding='utf-8'
-cookies = {}
-error = 0
+# 配置常量
+CONFIG_FILE = 'config.ini'
+VERSION = '1.0.0'
+ENCODING = 'utf-8'
 
-class config_is_error(Exception):
-	pass
+# 配置日志
+logging.basicConfig(
+	level=logging.INFO,
+	format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-class config_do:
-	def __init__(self):
-		self.config = configparser.ConfigParser()
-		self.config.read(config_file, encoding=encoding)
-	
-	def write_ini_file(self):
-		# 获取当前程序所在目录
-		current_dir = os.path.dirname(os.path.abspath(__file__))
-		print(f"程序所在目录: {current_dir}")
+
+def safe_delete(path):
+	"""
+	安全删除文件或目录，不抛出异常
+	:param path: 文件或目录路径
+	:return: True 表示删除成功或文件不存在，False 表示删除失败
+	"""
+	try:
+		if not os.path.exists(path):
+			return True
 		
+		if os.path.isfile(path):
+			os.remove(path)
+			logger.info(f"成功删除文件: {path}")
+		elif os.path.isdir(path):
+			shutil.rmtree(path, ignore_errors=True)
+			logger.info(f"成功删除目录: {path}")
+		
+		return True
+	except Exception as e:
+		logger.error(f"删除失败: {path}, 错误: {e}")
+		return False
+
+
+def first():
+	"""
+	首次初始化函数
+	创建必要的目录结构和配置文件
+	"""
+	logger.info("开始首次初始化...")
+	
+	# 获取当前程序所在目录
+	current_dir = os.path.dirname(os.path.abspath(__file__))
+	
+	# 创建配置解析器
+	config = configparser.ConfigParser()
+	
+	# 检查配置文件是否存在
+	config_file_path = CONFIG_FILE
+	
+	# 如果配置文件不存在，创建默认配置
+	if not os.path.exists(config_file_path):
+		logger.info("配置文件不存在，创建默认配置...")
 		
 		# [path] 部分 - 使用相对路径
-		self.config['path'] = {
+		config['path'] = {
 			'logs': os.path.join(current_dir, 'logs'),
 			'config': os.path.join(current_dir, 'config'),
 			'temp': os.path.join(current_dir, 'temp'),
 			'DownKyi': os.path.join(current_dir, 'DownKyi'),
 			'Cookies': os.path.join(current_dir, 'Cookies'),
-			'bats':os.path.join(current_dir, 'bats')
+			'bats': os.path.join(current_dir, 'bats'),
+			'ffmpeg':os.path.join(current_dir, 'ffmpeg.exe')
 		}
 		
 		# [app] 部分
-		self.config['app'] = {
-			'version': '1.0.0',
+		config['app'] = {
+			'version': VERSION,
 			'founder': 'OurPet工作室'
 		}
 		
 		# [info] 部分
-		self.config['info'] = {
-			'encoding': 'utf-8'
+		config['info'] = {
+			'encoding': ENCODING
 		}
 		
-		# 确定INI文件保存路径
-		ini_path = config_file
-		
-		# 写入文件
-		with open(ini_path, 'w', encoding='utf-8') as configfile:
-			self.config.write(configfile)
-
-		
-	
-	def mkdir(self, path):
-		path = pathlib.Path(path)
-		# 1. 若路径已存在：是文件夹则返回 True，是文件则返回 False
-		if path.exists():
-			if path.is_dir(): # 文件夹→True，文件→False
-				log.log_write(log_head='Error -- 0', log_message=f'Directory already exists during creation: {path}', log_ip=1113)
-				return True
-		# 2. 路径不存在：尝试创建文件夹
+		# 写入配置文件
 		try:
-			path.mkdir(parents=True)
-			log.log_write(log_head='Success', log_message=f'Directory "{path}" created successfully', log_ip= 1114)
-			return True
+			with open(config_file_path, 'w', encoding=ENCODING) as configfile:
+				config.write(configfile)
+				configfile.flush()
+			logger.info(f"配置文件创建成功: {config_file_path}")
 		except Exception as e:
-			log.log_write(log_head='Error -- 10', log_message=f'Unknown error when creating the directory: {e}', log_ip=115)
+			logger.error(f"创建配置文件失败: {e}")
 			return False
-		
-	def first(self):
-		global error
+	else:
+		logger.info("配置文件已存在，加载配置...")
+	
+	# 读取配置文件
+	try:
+		config.read(config_file_path, encoding=ENCODING)
+	except Exception as e:
+		logger.error(f"读取配置文件失败: {e}")
+		# 尝试删除损坏的配置文件并重新创建
+		safe_delete(config_file_path)
+		return first()  # 递归重试
+	
+	# 创建必要的目录
+	def mkdir(path):
+		"""创建目录的辅助函数"""
 		try:
-			config_path = self.config.get("path", "config")
-			self.mkdir(config_path)
-			with open(os.path.join(config_path, "DownKyi.bin"), "w", encoding=encoding) as f:
-				f.write(self.config.get("path", "DownKyi"))
-			with open(os.path.join(config_path, "cookies.bin"), "w", encoding=encoding) as f:
-				f.write(json.dumps(cookies))
-			with open(os.path.join(config_path, 'version'), 'w', encoding=encoding) as f:
-				f.write(self.config.get('app', 'version'))
-			self.mkdir(os.path.join(config_path, "cookies"))
-			
-
-			Cookise_path = self.config.get('path', "cookies")
-			self.mkdir(Cookise_path)
-			
-			log_path = self.config.get('path', "logs")
-			self.mkdir(log_path)
-			
-			temp_path = self.config.get('path', 'temp')
-			self.mkdir(temp_path)
-			
-			bat_path = self.config.get('path', 'bats')
-			self.mkdir(bat_path)
-			
-			log.log_write(log_head='Success', log_message='The first-time loading is success', log_ip=1112)
-		except configparser.NoSectionError:
-			log.log_write(log_head='Error -- 10', log_message='config_is_error:Can`t find file name is config.ini in object', log_ip=1111)
-			log.log_write(log_head='retry', log_message="Retrying due to error config_is_error: Can't find file named config.ini in object. Retry count: 1/1", log_ip=1116)
-			self.write_ini_file()
-			self.first()
-			if error == 1:
-				raise config_is_error('Can`t find file name is config.ini in object')
+			if not os.path.exists(path):
+				os.makedirs(path, exist_ok=True)
+				logger.info(f"目录创建成功: {path}")
+				return True
+			else:
+				if os.path.isdir(path):
+					logger.debug(f"目录已存在: {path}")
+					return True
+				else:
+					logger.error(f"路径存在但不是目录: {path}")
+					return False
 		except Exception as e:
-			if error == 0:
-				print(e)
-				error = 1
-				self.first()
-			log.log_write(log_head='Error -- 10', log_message=f'Unknown error when initializing config: {e}', log_ip=1119)
-			raise e
+			logger.error(f"创建目录失败: {path}, 错误: {e}")
+			return False
+	
+	# 获取配置中的路径
+	try:
+		config_path = config.get("path", "config")
+		cookies_path = config.get("path", "Cookies")
+		logs_path = config.get("path", "logs")
+		temp_path = config.get("path", "temp")
+		bats_path = config.get("path", "bats")
+		
+		# 创建所有必要的目录
+		directories = [
+			config_path,
+			cookies_path,
+			logs_path,
+			temp_path,
+			bats_path
+		]
+		
+		for directory in directories:
+			if not mkdir(directory):
+				logger.warning(f"目录创建可能失败: {directory}")
+		
+		# 创建config目录下的子目录和文件
+		mkdir(os.path.join(config_path, "cookies"))
+		
+		# 写入DownKyi.bin
+		downkyi_file = os.path.join(config_path, "DownKyi.bin")
+		with open(downkyi_file, "w", encoding=ENCODING) as f:
+			f.write(config.get("path", "DownKyi"))
+		
+		# 写入cookies.bin（初始为空字典）
+		cookies_file = os.path.join(config_path, "cookies.bin")
+		with open(cookies_file, "w", encoding=ENCODING) as f:
+			json.dump({}, f, ensure_ascii=False, indent=2)
+		
+		# 写入version文件
+		version_file = os.path.join(config_path, 'version')
+		with open(version_file, 'w', encoding=ENCODING) as f:
+			f.write(config.get('app', 'version'))
+		
+		logger.info("首次初始化完成")
+		return True
+	
+	except configparser.NoSectionError as e:
+		logger.error(f"配置文件格式错误，缺少必要的节: {e}")
+		# 删除损坏的配置文件
+		safe_delete(config_file_path)
+		# 重新尝试初始化
+		return first()
+	
+	except Exception as e:
+		logger.error(f"初始化过程中发生未知错误: {e}")
+		return False
 
-	def new_cookies(self):
-		...
 
+# 主入口
 if __name__ == '__main__':
-	config_do = config_do()
-	config_do.first()
+	# 执行首次初始化
+	success = first()
+	if success:
+		print("初始化成功完成！")
+	else:
+		print("初始化失败，请检查日志。")
