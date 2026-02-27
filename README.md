@@ -1,5 +1,3 @@
----
-
 ![https：//count.getloli.com/@crazying-dev](https://count.getloli.com/@crazying-dev)
 
 ---
